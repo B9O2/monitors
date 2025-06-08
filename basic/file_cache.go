@@ -18,7 +18,7 @@ type FileCacheMonitor struct {
 	ms *Multitasking.MonitorServer
 }
 
-func (fcm *FileCacheMonitor) Start(ctx context.Context, addr string, credential credentials.TransportCredentials) (result []any, err error) {
+func (fcm *FileCacheMonitor) Start(ctx context.Context, addr string, threads uint64, credential credentials.TransportCredentials) (result []any, err error) {
 
 	if credential == nil {
 		fmt.Println("[!]No credentials provided, using insecure connection")
@@ -32,7 +32,7 @@ func (fcm *FileCacheMonitor) Start(ctx context.Context, addr string, credential 
 		}
 	}()
 
-	return fcm.mt.Run(ctx, 20)
+	return fcm.mt.Run(ctx, threads)
 
 }
 
