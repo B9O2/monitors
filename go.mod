@@ -8,7 +8,7 @@ require (
 )
 
 require (
-	github.com/B9O2/Multitasking v0.6.9 // indirect
+	github.com/B9O2/Multitasking v0.7.1 // indirect
 	github.com/B9O2/NStruct v0.0.5 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.19 // indirect

@@ -6,27 +6,29 @@ import (
 	"time"
 
 	"github.com/B9O2/Multitasking"
+	"github.com/B9O2/monitors/core"
 	"github.com/B9O2/monitors/utils"
 	"github.com/natefinch/lumberjack"
 	"github.com/rs/zerolog"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 type FileCacheMonitor struct {
 	mt *Multitasking.Multitasking
-	ms *Multitasking.MonitorServer
+	ms *core.MonitorServer
 }
 
 func (fcm *FileCacheMonitor) Start(ctx context.Context, addr string, threads uint64, credential credentials.TransportCredentials) (result []any, err error) {
 
 	if credential == nil {
 		fmt.Println("[!]No credentials provided, using insecure connection")
-		credential = credentials.NewTLS(nil) // Use insecure connection
+		credential = insecure.NewCredentials() // Use insecure connection
 	}
 
 	go func() {
-		err = Multitasking.StartMonitoringServer(addr, fcm.ms, grpc.Creds(credential))
+		err = core.StartMonitoringServer(addr, fcm.ms, grpc.Creds(credential))
 		if err != nil {
 			return
 		}
@@ -50,7 +52,7 @@ func NewFileCacheMonitor(mt *Multitasking.Multitasking, fileName string, maxSize
 		return l.Output(writer).With().Timestamp().Uint64("thread_id", u).Logger()
 	})
 
-	ms, err := Multitasking.NewMonitorServer(mt)
+	ms, err := core.NewMonitorServer(mt)
 	if err != nil {
 		return nil, err
 	}

@@ -1,5 +1,9 @@
 github.com/B9O2/Multitasking v0.6.9 h1:hSmO8k5nQyGBQHGsbuo4Fxr7rIkRqiZKITGjtxEYFxo=
 github.com/B9O2/Multitasking v0.6.9/go.mod h1:SsIrn15pxyRPKtFxS5c8pQosqdpwyBRyMNTYENVmwmA=
+github.com/B9O2/Multitasking v0.7.0 h1:mGP0uZ8j59dzOT5WS4SRwsNHFsvqDU2QLzZqWCi7FIo=
+github.com/B9O2/Multitasking v0.7.0/go.mod h1:TJiVdkSn+MusqaAnuXkAyOXwMTHl9xi0QFxl0R288aE=
+github.com/B9O2/Multitasking v0.7.1 h1:azlPGZ7yqyoyY+GrJbkddJbBJ/I9bLZcFZhEzSgKTgI=
+github.com/B9O2/Multitasking v0.7.1/go.mod h1:TJiVdkSn+MusqaAnuXkAyOXwMTHl9xi0QFxl0R288aE=
 github.com/B9O2/NStruct v0.0.5 h1:G2VKyujJ73rBFK4+JzuaINYKJihKoLAE+/wSVRlE2ds=
 github.com/B9O2/NStruct v0.0.5/go.mod h1:n39Dq+nLHIt8Fsua8CxxyyVGk/C7Xeoqow9MAdKR13U=
 github.com/coreos/go-systemd/v22 v22.5.0/go.mod h1:Y58oyj3AT4RCenI/lSvhwexgC+NSVTIJ3seZv2GcEnc=

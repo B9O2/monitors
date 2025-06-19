@@ -3,16 +3,13 @@ package basic
 import (
 	"context"
 	"fmt"
-	"log"
 	"math/rand"
 	"os"
-	"path"
 	"testing"
 	"time"
 
 	"github.com/B9O2/Multitasking"
 	"github.com/rs/zerolog"
-	"google.golang.org/grpc/credentials"
 )
 
 type Task struct {
@@ -61,16 +58,16 @@ func TestMonitor(t *testing.T) {
 	}
 
 	//加载证书
-	cert, err := credentials.NewServerTLSFromFile(path.Join(CertDir, "server.crt"), path.Join(CertDir, "server.key"))
-	if err != nil {
-		log.Fatalf("failed to load cert: %v", err)
-	}
+	// cert, err := credentials.NewServerTLSFromFile(path.Join(CertDir, "server.crt"), path.Join(CertDir, "server.key"))
+	// if err != nil {
+	// 	log.Fatalf("failed to load cert: %v", err)
+	// }
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	fmt.Println("Running")
-	r, err := fcm.Start(ctx, ":50051", 20, cert)
+	r, err := fcm.Start(ctx, ":50051", 20, nil)
 	if err != nil {
 		fmt.Printf("Pool Run Error: %s\n", err)
 		return
