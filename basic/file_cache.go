@@ -15,12 +15,17 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-type FileCacheMonitor struct {
-	mt *Multitasking.Multitasking
-	ms *core.MonitorServer
+type FileCacheMonitor[T any, R any] struct {
+	mt *Multitasking.Multitasking[T, R]
+	ms *core.MonitorServer[T, R]
 }
 
-func (fcm *FileCacheMonitor) Start(ctx context.Context, addr string, threads uint64, credential credentials.TransportCredentials) (result []any, err error) {
+func (fcm *FileCacheMonitor[T, R]) Start(
+	ctx context.Context,
+	addr string,
+	threads uint64,
+	credential credentials.TransportCredentials,
+) (result []R, err error) {
 
 	if credential == nil {
 		fmt.Println("[!]No credentials provided, using insecure connection")
@@ -38,7 +43,12 @@ func (fcm *FileCacheMonitor) Start(ctx context.Context, addr string, threads uin
 
 }
 
-func NewFileCacheMonitor(mt *Multitasking.Multitasking, fileName string, maxSize int, maxAge int) (*FileCacheMonitor, error) {
+func NewFileCacheMonitor[T, R any](
+	mt *Multitasking.Multitasking[T, R],
+	fileName string,
+	maxSize int,
+	maxAge int,
+) (*FileCacheMonitor[T, R], error) {
 	writer := &lumberjack.Logger{
 		Filename:   fileName,
 		MaxSize:    maxSize, // MB
@@ -49,7 +59,11 @@ func NewFileCacheMonitor(mt *Multitasking.Multitasking, fileName string, maxSize
 
 	mt.SetLogger(func(u uint64, l zerolog.Logger) zerolog.Logger {
 		zerolog.TimeFieldFormat = "2006-01-02 15:04:05"
-		return l.Output(writer).With().Timestamp().Uint64("thread_id", u).Logger()
+		return l.Output(writer).
+			With().
+			Timestamp().
+			Uint64("thread_id", u).
+			Logger()
 	})
 
 	ms, err := core.NewMonitorServer(mt)
@@ -57,15 +71,17 @@ func NewFileCacheMonitor(mt *Multitasking.Multitasking, fileName string, maxSize
 		return nil, err
 	}
 
-	ms.SetLogReader(func(theadID int64, skipLine uint64, after time.Time) []string {
-		res, err := utils.ReadFromLine(fileName, int(skipLine))
-		if err != nil {
-			return []string{"Log Reader Error:" + err.Error()}
-		}
-		return res
-	})
+	ms.SetLogReader(
+		func(theadID int64, skipLine uint64, after time.Time) []string {
+			res, err := utils.ReadFromLine(fileName, int(skipLine))
+			if err != nil {
+				return []string{"Log Reader Error:" + err.Error()}
+			}
+			return res
+		},
+	)
 
-	return &FileCacheMonitor{
+	return &FileCacheMonitor[T, R]{
 		mt: mt,
 		ms: ms,
 	}, nil
