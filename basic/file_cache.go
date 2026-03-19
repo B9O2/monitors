@@ -57,12 +57,11 @@ func NewFileCacheMonitor[T, R any](
 		Compress:   false,
 	}
 
-	mt.SetLogger(func(u uint64, l zerolog.Logger) zerolog.Logger {
+	mt.SetLogger(func(l zerolog.Logger) zerolog.Logger {
 		zerolog.TimeFieldFormat = "2006-01-02 15:04:05"
 		return l.Output(writer).
 			With().
 			Timestamp().
-			Uint64("thread_id", u).
 			Logger()
 	})
 
