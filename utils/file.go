@@ -13,6 +13,9 @@ func ReadFromLine(path string, startLine int) ([]string, error) {
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
+	const maxCapacity = 1 * 1024 * 1024 // 1MB
+	buf := make([]byte, 64*1024)
+	scanner.Buffer(buf, maxCapacity)
 	lineNum := 1
 
 	var result []string

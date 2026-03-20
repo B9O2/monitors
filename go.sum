@@ -4,6 +4,8 @@ github.com/B9O2/Multitasking v0.8.3 h1:riBQUE46AvDTnm1x4xtYdwKjDpoI+2a8T83F0wTIh
 github.com/B9O2/Multitasking v0.8.3/go.mod h1:xLtNpDLSSQVwKFX3sPy/2bVDlQgn6cCrr9mANP+w6Ew=
 github.com/B9O2/Multitasking v0.8.5 h1:Zo5Qe6vm9fczYm+RukbJ3VSSp3NdO2XbRcondrHxeSw=
 github.com/B9O2/Multitasking v0.8.5/go.mod h1:xLtNpDLSSQVwKFX3sPy/2bVDlQgn6cCrr9mANP+w6Ew=
+github.com/B9O2/Multitasking v0.8.10 h1:wL8bCTa7qOr5B+XQ6+YOAoZ6tGls0EgG5LvHfDPX+TE=
+github.com/B9O2/Multitasking v0.8.10/go.mod h1:xLtNpDLSSQVwKFX3sPy/2bVDlQgn6cCrr9mANP+w6Ew=
 github.com/B9O2/NStruct v0.0.5 h1:G2VKyujJ73rBFK4+JzuaINYKJihKoLAE+/wSVRlE2ds=
 github.com/B9O2/NStruct v0.0.5/go.mod h1:n39Dq+nLHIt8Fsua8CxxyyVGk/C7Xeoqow9MAdKR13U=
 github.com/BurntSushi/toml v1.6.0 h1:dRaEfpa2VI55EwlIW72hMRHdWouJeRF7TPYhI+AUQjk=

@@ -39,11 +39,11 @@ func TestMonitor(t *testing.T) {
 	mt := Multitasking.NewMultitasking[any, any]("TestPool", nil)
 	mt.Register(
 		GenNumbers,
-		func(ec Multitasking.ExecuteController[any, any], a any) Multitasking.Result[any, any] {
+		func(ec Multitasking.ExecuteController[any, any], tc Multitasking.ThreadController, a any) Multitasking.Result[any, any] {
 			task := a.(Task)
 			t := time.Duration(task.A%4) * time.Duration(time.Second)
 			//fmt.Printf("> Sleep %s\n",t)
-			logger := ec.Logger()
+			logger := tc.Logger()
 			logger.Info().
 				Str("sleep", t.String()).
 				Msg(fmt.Sprintf("执行任务 Sleep %s", t))

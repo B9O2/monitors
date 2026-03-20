@@ -52,6 +52,9 @@ func (ms *MonitorServer[T, R]) StreamEvents(
 				}
 			} else {
 				logs = ms.logReader(req.ThreadId, skipLines, startTime)
+				if req.Limit > 0 && uint64(len(logs)) > req.Limit {
+					logs = logs[len(logs)-int(req.Limit):]
+				}
 			}
 
 			events := &monitor.Events{
@@ -172,11 +175,12 @@ func (mc *MonitorClient) StreamStatus(
 func (mc *MonitorClient) StreamEvents(
 	ctx context.Context,
 	interval time.Duration,
-	threadID int64,
+	threadID int64, limit uint64,
 ) (*EventsStream, error) {
 	stream, err := mc.msc.StreamEvents(ctx, &monitor.StreamEventsRequest{
 		Interval: uint64(interval),
 		ThreadId: threadID,
+		Limit: limit,
 	})
 	if err != nil {
 		return nil, err

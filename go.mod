@@ -3,7 +3,7 @@ module github.com/B9O2/monitors
 go 1.25.0
 
 require (
-	github.com/B9O2/Multitasking v0.8.5
+	github.com/B9O2/Multitasking v0.8.10
 	github.com/natefinch/lumberjack v2.0.0+incompatible
 	github.com/rs/zerolog v1.34.0
 	google.golang.org/grpc v1.73.0
