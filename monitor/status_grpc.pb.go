@@ -21,6 +21,8 @@ const _ = grpc.SupportPackageIsVersion9
 const (
 	MonitorService_StreamStatus_FullMethodName = "/monitor.MonitorService/StreamStatus"
 	MonitorService_StreamEvents_FullMethodName = "/monitor.MonitorService/StreamEvents"
+	MonitorService_PushStatus_FullMethodName   = "/monitor.MonitorService/PushStatus"
+	MonitorService_PushEvents_FullMethodName   = "/monitor.MonitorService/PushEvents"
 )
 
 // MonitorServiceClient is the client API for MonitorService service.
@@ -29,6 +31,8 @@ const (
 type MonitorServiceClient interface {
 	StreamStatus(ctx context.Context, in *StreamStatusRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[Status], error)
 	StreamEvents(ctx context.Context, in *StreamEventsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[Events], error)
+	PushStatus(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[Status, Empty], error)
+	PushEvents(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[Events, Empty], error)
 }
 
 type monitorServiceClient struct {
@@ -77,12 +81,40 @@ func (c *monitorServiceClient) StreamEvents(ctx context.Context, in *StreamEvent
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type MonitorService_StreamEventsClient = grpc.ServerStreamingClient[Events]
 
+func (c *monitorServiceClient) PushStatus(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[Status, Empty], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &MonitorService_ServiceDesc.Streams[2], MonitorService_PushStatus_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[Status, Empty]{ClientStream: stream}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type MonitorService_PushStatusClient = grpc.ClientStreamingClient[Status, Empty]
+
+func (c *monitorServiceClient) PushEvents(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[Events, Empty], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &MonitorService_ServiceDesc.Streams[3], MonitorService_PushEvents_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[Events, Empty]{ClientStream: stream}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type MonitorService_PushEventsClient = grpc.ClientStreamingClient[Events, Empty]
+
 // MonitorServiceServer is the server API for MonitorService service.
 // All implementations must embed UnimplementedMonitorServiceServer
 // for forward compatibility.
 type MonitorServiceServer interface {
 	StreamStatus(*StreamStatusRequest, grpc.ServerStreamingServer[Status]) error
 	StreamEvents(*StreamEventsRequest, grpc.ServerStreamingServer[Events]) error
+	PushStatus(grpc.ClientStreamingServer[Status, Empty]) error
+	PushEvents(grpc.ClientStreamingServer[Events, Empty]) error
 	mustEmbedUnimplementedMonitorServiceServer()
 }
 
@@ -98,6 +130,12 @@ func (UnimplementedMonitorServiceServer) StreamStatus(*StreamStatusRequest, grpc
 }
 func (UnimplementedMonitorServiceServer) StreamEvents(*StreamEventsRequest, grpc.ServerStreamingServer[Events]) error {
 	return status.Errorf(codes.Unimplemented, "method StreamEvents not implemented")
+}
+func (UnimplementedMonitorServiceServer) PushStatus(grpc.ClientStreamingServer[Status, Empty]) error {
+	return status.Errorf(codes.Unimplemented, "method PushStatus not implemented")
+}
+func (UnimplementedMonitorServiceServer) PushEvents(grpc.ClientStreamingServer[Events, Empty]) error {
+	return status.Errorf(codes.Unimplemented, "method PushEvents not implemented")
 }
 func (UnimplementedMonitorServiceServer) mustEmbedUnimplementedMonitorServiceServer() {}
 func (UnimplementedMonitorServiceServer) testEmbeddedByValue()                        {}
@@ -142,6 +180,20 @@ func _MonitorService_StreamEvents_Handler(srv interface{}, stream grpc.ServerStr
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type MonitorService_StreamEventsServer = grpc.ServerStreamingServer[Events]
 
+func _MonitorService_PushStatus_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(MonitorServiceServer).PushStatus(&grpc.GenericServerStream[Status, Empty]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type MonitorService_PushStatusServer = grpc.ClientStreamingServer[Status, Empty]
+
+func _MonitorService_PushEvents_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(MonitorServiceServer).PushEvents(&grpc.GenericServerStream[Events, Empty]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type MonitorService_PushEventsServer = grpc.ClientStreamingServer[Events, Empty]
+
 // MonitorService_ServiceDesc is the grpc.ServiceDesc for MonitorService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -159,6 +211,16 @@ var MonitorService_ServiceDesc = grpc.ServiceDesc{
 			StreamName:    "StreamEvents",
 			Handler:       _MonitorService_StreamEvents_Handler,
 			ServerStreams: true,
+		},
+		{
+			StreamName:    "PushStatus",
+			Handler:       _MonitorService_PushStatus_Handler,
+			ClientStreams: true,
+		},
+		{
+			StreamName:    "PushEvents",
+			Handler:       _MonitorService_PushEvents_Handler,
+			ClientStreams: true,
 		},
 	},
 	Metadata: "monitor/status.proto",

@@ -17,11 +17,13 @@ message Status {
   uint64 total_result = 4;        // 已完成任务总数
   uint64 retry_size = 5;             // 重试队列大小
   ThreadsDetail threads_detail = 6; 
+  uint64 interval = 7; // 数据更新间隔(纳秒)
 }
 
 // 定义日志
 message Events {
-  repeated string logs = 1;
+  string name = 1;
+  repeated string logs = 2;
 }
 
   
@@ -35,8 +37,12 @@ message StreamEventsRequest {
   uint64 limit = 3;
 }
 
+message Empty {}
+
 service MonitorService {
   rpc StreamStatus (StreamStatusRequest) returns (stream Status);
   rpc StreamEvents (StreamEventsRequest) returns (stream Events);
+  rpc PushStatus (stream Status) returns (Empty);
+  rpc PushEvents (stream Events) returns (Empty);
 }
   

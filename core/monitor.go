@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"time"
 
@@ -97,6 +98,7 @@ func (ms *MonitorServer[T, R]) StreamStatus(
 					ThreadsStatus: ms.mt.ThreadsDetail().AllStatus(),
 					ThreadsCount:  ms.mt.ThreadsDetail().AllCounter(),
 				},
+				Interval: uint64(interval),
 			}
 
 			if err := stream.Send(status); err != nil {
@@ -105,6 +107,30 @@ func (ms *MonitorServer[T, R]) StreamStatus(
 			//fmt.Println("Server metrics sent")
 		case <-stream.Context().Done():
 			return nil
+		}
+	}
+}
+
+func (ms *MonitorServer[T, R]) PushStatus(stream monitor.MonitorService_PushStatusServer) error {
+	for {
+		_, err := stream.Recv()
+		if err == io.EOF {
+			return stream.SendAndClose(&monitor.Empty{})
+		}
+		if err != nil {
+			return err
+		}
+	}
+}
+
+func (ms *MonitorServer[T, R]) PushEvents(stream monitor.MonitorService_PushEventsServer) error {
+	for {
+		_, err := stream.Recv()
+		if err == io.EOF {
+			return stream.SendAndClose(&monitor.Empty{})
+		}
+		if err != nil {
+			return err
 		}
 	}
 }
@@ -150,6 +176,30 @@ func (es *EventsStream) Receive() (*monitor.Events, error) {
 	return es.stream.Recv()
 }
 
+type StatusPushStream struct {
+	stream monitor.MonitorService_PushStatusClient
+}
+
+func (sps *StatusPushStream) Send(status *monitor.Status) error {
+	return sps.stream.Send(status)
+}
+
+func (sps *StatusPushStream) CloseAndRecv() (*monitor.Empty, error) {
+	return sps.stream.CloseAndRecv()
+}
+
+type EventsPushStream struct {
+	stream monitor.MonitorService_PushEventsClient
+}
+
+func (eps *EventsPushStream) Send(events *monitor.Events) error {
+	return eps.stream.Send(events)
+}
+
+func (eps *EventsPushStream) CloseAndRecv() (*monitor.Empty, error) {
+	return eps.stream.CloseAndRecv()
+}
+
 type MonitorClient struct {
 	conn *grpc.ClientConn
 	msc  monitor.MonitorServiceClient
@@ -189,6 +239,26 @@ func (mc *MonitorClient) StreamEvents(
 		stream: stream,
 	}, nil
 
+}
+
+func (mc *MonitorClient) PushStatus(ctx context.Context) (*StatusPushStream, error) {
+	stream, err := mc.msc.PushStatus(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &StatusPushStream{
+		stream: stream,
+	}, nil
+}
+
+func (mc *MonitorClient) PushEvents(ctx context.Context) (*EventsPushStream, error) {
+	stream, err := mc.msc.PushEvents(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &EventsPushStream{
+		stream: stream,
+	}, nil
 }
 
 func (mc *MonitorClient) Close() error {

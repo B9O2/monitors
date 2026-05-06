@@ -82,6 +82,7 @@ type Status struct {
 	TotalResult   uint64                 `protobuf:"varint,4,opt,name=total_result,json=totalResult,proto3" json:"total_result,omitempty"` // 已完成任务总数
 	RetrySize     uint64                 `protobuf:"varint,5,opt,name=retry_size,json=retrySize,proto3" json:"retry_size,omitempty"`       // 重试队列大小
 	ThreadsDetail *ThreadsDetail         `protobuf:"bytes,6,opt,name=threads_detail,json=threadsDetail,proto3" json:"threads_detail,omitempty"`
+	Interval      uint64                 `protobuf:"varint,7,opt,name=interval,proto3" json:"interval,omitempty"` // 数据更新间隔(纳秒)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -158,10 +159,18 @@ func (x *Status) GetThreadsDetail() *ThreadsDetail {
 	return nil
 }
 
+func (x *Status) GetInterval() uint64 {
+	if x != nil {
+		return x.Interval
+	}
+	return 0
+}
+
 // 定义日志
 type Events struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Logs          []string               `protobuf:"bytes,1,rep,name=logs,proto3" json:"logs,omitempty"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Logs          []string               `protobuf:"bytes,2,rep,name=logs,proto3" json:"logs,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -194,6 +203,13 @@ func (x *Events) ProtoReflect() protoreflect.Message {
 // Deprecated: Use Events.ProtoReflect.Descriptor instead.
 func (*Events) Descriptor() ([]byte, []int) {
 	return file_monitor_status_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *Events) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
 }
 
 func (x *Events) GetLogs() []string {
@@ -307,6 +323,42 @@ func (x *StreamEventsRequest) GetLimit() uint64 {
 	return 0
 }
 
+type Empty struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Empty) Reset() {
+	*x = Empty{}
+	mi := &file_monitor_status_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Empty) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Empty) ProtoMessage() {}
+
+func (x *Empty) ProtoReflect() protoreflect.Message {
+	mi := &file_monitor_status_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Empty.ProtoReflect.Descriptor instead.
+func (*Empty) Descriptor() ([]byte, []int) {
+	return file_monitor_status_proto_rawDescGZIP(), []int{5}
+}
+
 var File_monitor_status_proto protoreflect.FileDescriptor
 
 const file_monitor_status_proto_rawDesc = "" +
@@ -314,7 +366,7 @@ const file_monitor_status_proto_rawDesc = "" +
 	"\x14monitor/status.proto\x12\amonitor\"[\n" +
 	"\rThreadsDetail\x12%\n" +
 	"\x0ethreads_status\x18\x01 \x03(\rR\rthreadsStatus\x12#\n" +
-	"\rthreads_count\x18\x02 \x03(\x04R\fthreadsCount\"\xdd\x01\n" +
+	"\rthreads_count\x18\x02 \x03(\x04R\fthreadsCount\"\xf9\x01\n" +
 	"\x06Status\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1d\n" +
 	"\n" +
@@ -324,18 +376,25 @@ const file_monitor_status_proto_rawDesc = "" +
 	"\ftotal_result\x18\x04 \x01(\x04R\vtotalResult\x12\x1d\n" +
 	"\n" +
 	"retry_size\x18\x05 \x01(\x04R\tretrySize\x12=\n" +
-	"\x0ethreads_detail\x18\x06 \x01(\v2\x16.monitor.ThreadsDetailR\rthreadsDetail\"\x1c\n" +
+	"\x0ethreads_detail\x18\x06 \x01(\v2\x16.monitor.ThreadsDetailR\rthreadsDetail\x12\x1a\n" +
+	"\binterval\x18\a \x01(\x04R\binterval\"0\n" +
 	"\x06Events\x12\x12\n" +
-	"\x04logs\x18\x01 \x03(\tR\x04logs\"1\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
+	"\x04logs\x18\x02 \x03(\tR\x04logs\"1\n" +
 	"\x13StreamStatusRequest\x12\x1a\n" +
 	"\binterval\x18\x01 \x01(\x04R\binterval\"d\n" +
 	"\x13StreamEventsRequest\x12\x1a\n" +
 	"\binterval\x18\x01 \x01(\x04R\binterval\x12\x1b\n" +
 	"\tthread_id\x18\x02 \x01(\x03R\bthreadId\x12\x14\n" +
-	"\x05limit\x18\x03 \x01(\x04R\x05limit2\x92\x01\n" +
+	"\x05limit\x18\x03 \x01(\x04R\x05limit\"\a\n" +
+	"\x05Empty2\xf4\x01\n" +
 	"\x0eMonitorService\x12?\n" +
 	"\fStreamStatus\x12\x1c.monitor.StreamStatusRequest\x1a\x0f.monitor.Status0\x01\x12?\n" +
-	"\fStreamEvents\x12\x1c.monitor.StreamEventsRequest\x1a\x0f.monitor.Events0\x01B\vZ\t.;monitorb\x06proto3"
+	"\fStreamEvents\x12\x1c.monitor.StreamEventsRequest\x1a\x0f.monitor.Events0\x01\x12/\n" +
+	"\n" +
+	"PushStatus\x12\x0f.monitor.Status\x1a\x0e.monitor.Empty(\x01\x12/\n" +
+	"\n" +
+	"PushEvents\x12\x0f.monitor.Events\x1a\x0e.monitor.Empty(\x01B\vZ\t.;monitorb\x06proto3"
 
 var (
 	file_monitor_status_proto_rawDescOnce sync.Once
@@ -349,22 +408,27 @@ func file_monitor_status_proto_rawDescGZIP() []byte {
 	return file_monitor_status_proto_rawDescData
 }
 
-var file_monitor_status_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_monitor_status_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_monitor_status_proto_goTypes = []any{
 	(*ThreadsDetail)(nil),       // 0: monitor.ThreadsDetail
 	(*Status)(nil),              // 1: monitor.Status
 	(*Events)(nil),              // 2: monitor.Events
 	(*StreamStatusRequest)(nil), // 3: monitor.StreamStatusRequest
 	(*StreamEventsRequest)(nil), // 4: monitor.StreamEventsRequest
+	(*Empty)(nil),               // 5: monitor.Empty
 }
 var file_monitor_status_proto_depIdxs = []int32{
 	0, // 0: monitor.Status.threads_detail:type_name -> monitor.ThreadsDetail
 	3, // 1: monitor.MonitorService.StreamStatus:input_type -> monitor.StreamStatusRequest
 	4, // 2: monitor.MonitorService.StreamEvents:input_type -> monitor.StreamEventsRequest
-	1, // 3: monitor.MonitorService.StreamStatus:output_type -> monitor.Status
-	2, // 4: monitor.MonitorService.StreamEvents:output_type -> monitor.Events
-	3, // [3:5] is the sub-list for method output_type
-	1, // [1:3] is the sub-list for method input_type
+	1, // 3: monitor.MonitorService.PushStatus:input_type -> monitor.Status
+	2, // 4: monitor.MonitorService.PushEvents:input_type -> monitor.Events
+	1, // 5: monitor.MonitorService.StreamStatus:output_type -> monitor.Status
+	2, // 6: monitor.MonitorService.StreamEvents:output_type -> monitor.Events
+	5, // 7: monitor.MonitorService.PushStatus:output_type -> monitor.Empty
+	5, // 8: monitor.MonitorService.PushEvents:output_type -> monitor.Empty
+	5, // [5:9] is the sub-list for method output_type
+	1, // [1:5] is the sub-list for method input_type
 	1, // [1:1] is the sub-list for extension type_name
 	1, // [1:1] is the sub-list for extension extendee
 	0, // [0:1] is the sub-list for field type_name
@@ -381,7 +445,7 @@ func file_monitor_status_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_monitor_status_proto_rawDesc), len(file_monitor_status_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   5,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
