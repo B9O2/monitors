@@ -1,6 +1,8 @@
 package basic
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"fmt"
 	"sync"
@@ -23,11 +25,15 @@ type MemoryLogBuffer struct {
 func (m *MemoryLogBuffer) Write(p []byte) (n int, err error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	line := string(p)
-	if len(line) > 0 && line[len(line)-1] == '\n' {
-		line = line[:len(line)-1]
+
+	// Use a scanner to handle potential multiple lines in a single write call
+	scanner := bufio.NewScanner(bytes.NewReader(p))
+	for scanner.Scan() {
+		line := scanner.Text()
+		if line != "" {
+			m.logs = append(m.logs, line)
+		}
 	}
-	m.logs = append(m.logs, line)
 	return len(p), nil
 }
 
@@ -60,7 +66,7 @@ func (pm *PushMonitor[T, R]) Start(
 	credential credentials.TransportCredentials,
 ) (result []R, err error) {
 	if credential == nil {
-		fmt.Println("[!]No credentials provided, using insecure connection")
+		fmt.Println("[PushMonitor] No credentials provided, using insecure connection")
 		credential = insecure.NewCredentials()
 	}
 
@@ -70,7 +76,6 @@ func (pm *PushMonitor[T, R]) Start(
 	}
 	defer mc.Close()
 
-	// 1. 在主协程中预先建立流，避免 context canceled 竞态
 	pushCtx, pushCancel := context.WithCancel(ctx)
 	defer pushCancel()
 
@@ -87,6 +92,7 @@ func (pm *PushMonitor[T, R]) Start(
 	logBuffer := &MemoryLogBuffer{}
 	pm.mt.SetLogger(func(l zerolog.Logger) zerolog.Logger {
 		zerolog.TimeFieldFormat = "2006-01-02 15:04:05"
+		// Ensure logs are written to our memory buffer
 		return l.Output(logBuffer).With().Timestamp().Logger()
 	})
 
@@ -116,10 +122,10 @@ func (pm *PushMonitor[T, R]) Start(
 					Interval: uint64(interval),
 				}
 				if err := statusStream.Send(status); err != nil {
+					fmt.Printf("[PushMonitor] Error sending status: %v\n", err)
 					return
 				}
 			case <-stopChan:
-				// 任务结束，推送最后一次状态
 				status := &monitor.Status{
 					Name:        pm.mt.Name(),
 					TotalTask:   pm.mt.TotalTask(),
@@ -157,11 +163,12 @@ func (pm *PushMonitor[T, R]) Start(
 						Name: pm.mt.Name(),
 						Logs: logs,
 					}); err != nil {
+						fmt.Printf("[PushMonitor] Error sending events: %v\n", err)
 						return
 					}
+					// fmt.Printf("[PushMonitor] Sent %d logs to %s\n", len(logs), addr)
 				}
 			case <-stopChan:
-				// 任务结束，排干缓冲区发送最后一次日志
 				logs := logBuffer.Drain()
 				if len(logs) > 0 {
 					eventsStream.Send(&monitor.Events{
@@ -177,10 +184,8 @@ func (pm *PushMonitor[T, R]) Start(
 		}
 	}()
 
-	// 运行主任务
 	result, err = pm.mt.Run(ctx, threads)
 	
-	// 优雅通知后台推送协程：任务已结束，请处理收尾
 	close(stopChan)
 	wg.Wait()
 	
