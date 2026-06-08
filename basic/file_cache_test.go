@@ -9,14 +9,13 @@ import (
 	"time"
 
 	"github.com/B9O2/Multitasking"
-	"github.com/rs/zerolog"
 )
 
 type Task struct {
 	A, B, I int
 }
 
-func GenNumbers(dc Multitasking.DistributeController) {
+func GenNumbers(dc Multitasking.DistributeController[any, any]) {
 	//dc.Debug(true)
 	final := 0
 	for i := 0; i < 1000; i++ {
@@ -37,16 +36,19 @@ func TestMonitor(t *testing.T) {
 		return
 	}
 
-	mt := Multitasking.NewMultitasking("TestPool", nil)
+	mt := Multitasking.NewMultitasking[any, any]("TestPool", nil)
 	mt.Register(
 		GenNumbers,
-		func(ec Multitasking.ExecuteController, logger zerolog.Logger, a any) any {
+		func(ec Multitasking.ExecuteController[any, any], tc Multitasking.ThreadController, a any) Multitasking.Result[any, any] {
 			task := a.(Task)
 			t := time.Duration(task.A%4) * time.Duration(time.Second)
 			//fmt.Printf("> Sleep %s\n",t)
-			logger.Info().Str("sleep", t.String()).Msg(fmt.Sprintf("执行任务 Sleep %s", t))
+			logger := tc.Logger()
+			logger.Info().
+				Str("sleep", t.String()).
+				Msg(fmt.Sprintf("执行任务 Sleep %s", t))
 			time.Sleep(t)
-			return task.A + task.B
+			return ec.Success(task.A + task.B)
 		},
 	)
 

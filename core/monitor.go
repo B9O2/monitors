@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"time"
 
@@ -13,17 +14,22 @@ import (
 
 const TimeLayout = "2006-01-02 15:04:05"
 
-type MonitorServer struct {
+type MonitorServer[T, R any] struct {
 	monitor.UnimplementedMonitorServiceServer
-	mt        *Multitasking.Multitasking
+	mt        *Multitasking.Multitasking[T, R]
 	logReader func(theadID int64, skipLine uint64, after time.Time) []string
 }
 
-func (ms *MonitorServer) SetLogReader(logReader func(theadID int64, skipLine uint64, after time.Time) []string) {
+func (ms *MonitorServer[T, R]) SetLogReader(
+	logReader func(theadID int64, skipLine uint64, after time.Time) []string,
+) {
 	ms.logReader = logReader
 }
 
-func (ms *MonitorServer) StreamEvents(req *monitor.StreamEventsRequest, stream grpc.ServerStreamingServer[monitor.Events]) error {
+func (ms *MonitorServer[T, R]) StreamEvents(
+	req *monitor.StreamEventsRequest,
+	stream grpc.ServerStreamingServer[monitor.Events],
+) error {
 	//fmt.Println("Server stream metrics starting")
 	interval := time.Duration(req.Interval)
 	startTime := time.Now()
@@ -37,9 +43,19 @@ func (ms *MonitorServer) StreamEvents(req *monitor.StreamEventsRequest, stream g
 			//fmt.Println("Server metrics sending")
 			var logs []string
 			if ms.logReader == nil {
-				logs = []string{fmt.Sprintf("[%s]Monitor server has no log reader. Skip Lines: %d Start Time: %s", time.Now().Format(TimeLayout), skipLines, startTime.Format(TimeLayout))}
+				logs = []string{
+					fmt.Sprintf(
+						"[%s]Monitor server has no log reader. Skip Lines: %d Start Time: %s",
+						time.Now().Format(TimeLayout),
+						skipLines,
+						startTime.Format(TimeLayout),
+					),
+				}
 			} else {
 				logs = ms.logReader(req.ThreadId, skipLines, startTime)
+				if req.Limit > 0 && uint64(len(logs)) > req.Limit {
+					logs = logs[len(logs)-int(req.Limit):]
+				}
 			}
 
 			events := &monitor.Events{
@@ -57,7 +73,10 @@ func (ms *MonitorServer) StreamEvents(req *monitor.StreamEventsRequest, stream g
 	}
 }
 
-func (ms *MonitorServer) StreamStatus(req *monitor.StreamStatusRequest, stream grpc.ServerStreamingServer[monitor.Status]) error {
+func (ms *MonitorServer[T, R]) StreamStatus(
+	req *monitor.StreamStatusRequest,
+	stream grpc.ServerStreamingServer[monitor.Status],
+) error {
 	//fmt.Println("Server stream metrics starting")
 	interval := time.Duration(req.Interval)
 
@@ -79,6 +98,7 @@ func (ms *MonitorServer) StreamStatus(req *monitor.StreamStatusRequest, stream g
 					ThreadsStatus: ms.mt.ThreadsDetail().AllStatus(),
 					ThreadsCount:  ms.mt.ThreadsDetail().AllCounter(),
 				},
+				Interval: uint64(interval),
 			}
 
 			if err := stream.Send(status); err != nil {
@@ -91,14 +111,44 @@ func (ms *MonitorServer) StreamStatus(req *monitor.StreamStatusRequest, stream g
 	}
 }
 
-func NewMonitorServer(mt *Multitasking.Multitasking) (*MonitorServer, error) {
-	ms := &MonitorServer{
+func (ms *MonitorServer[T, R]) PushStatus(stream monitor.MonitorService_PushStatusServer) error {
+	for {
+		_, err := stream.Recv()
+		if err == io.EOF {
+			return stream.SendAndClose(&monitor.Empty{})
+		}
+		if err != nil {
+			return err
+		}
+	}
+}
+
+func (ms *MonitorServer[T, R]) PushEvents(stream monitor.MonitorService_PushEventsServer) error {
+	for {
+		_, err := stream.Recv()
+		if err == io.EOF {
+			return stream.SendAndClose(&monitor.Empty{})
+		}
+		if err != nil {
+			return err
+		}
+	}
+}
+
+func NewMonitorServer[T, R any](
+	mt *Multitasking.Multitasking[T, R],
+) (*MonitorServer[T, R], error) {
+	ms := &MonitorServer[T, R]{
 		mt: mt,
 	}
 	return ms, nil
 }
 
-func StartMonitoringServer(address string, ms *MonitorServer, opts ...grpc.ServerOption) error {
+func StartMonitoringServer[T, R any](
+	address string,
+	ms *MonitorServer[T, R],
+	opts ...grpc.ServerOption,
+) error {
 	server := grpc.NewServer(opts...)
 	monitor.RegisterMonitorServiceServer(server, ms)
 
@@ -126,12 +176,39 @@ func (es *EventsStream) Receive() (*monitor.Events, error) {
 	return es.stream.Recv()
 }
 
+type StatusPushStream struct {
+	stream monitor.MonitorService_PushStatusClient
+}
+
+func (sps *StatusPushStream) Send(status *monitor.Status) error {
+	return sps.stream.Send(status)
+}
+
+func (sps *StatusPushStream) CloseAndRecv() (*monitor.Empty, error) {
+	return sps.stream.CloseAndRecv()
+}
+
+type EventsPushStream struct {
+	stream monitor.MonitorService_PushEventsClient
+}
+
+func (eps *EventsPushStream) Send(events *monitor.Events) error {
+	return eps.stream.Send(events)
+}
+
+func (eps *EventsPushStream) CloseAndRecv() (*monitor.Empty, error) {
+	return eps.stream.CloseAndRecv()
+}
+
 type MonitorClient struct {
 	conn *grpc.ClientConn
 	msc  monitor.MonitorServiceClient
 }
 
-func (mc *MonitorClient) StreamStatus(ctx context.Context, interval time.Duration) (*StatusStream, error) {
+func (mc *MonitorClient) StreamStatus(
+	ctx context.Context,
+	interval time.Duration,
+) (*StatusStream, error) {
 	stream, err := mc.msc.StreamStatus(ctx, &monitor.StreamStatusRequest{
 		Interval: uint64(interval),
 	})
@@ -145,10 +222,15 @@ func (mc *MonitorClient) StreamStatus(ctx context.Context, interval time.Duratio
 }
 
 // StreamEvents threadID为负数代表所有日志
-func (mc *MonitorClient) StreamEvents(ctx context.Context, interval time.Duration, threadID int64) (*EventsStream, error) {
+func (mc *MonitorClient) StreamEvents(
+	ctx context.Context,
+	interval time.Duration,
+	threadID int64, limit uint64,
+) (*EventsStream, error) {
 	stream, err := mc.msc.StreamEvents(ctx, &monitor.StreamEventsRequest{
 		Interval: uint64(interval),
 		ThreadId: threadID,
+		Limit: limit,
 	})
 	if err != nil {
 		return nil, err
@@ -159,11 +241,34 @@ func (mc *MonitorClient) StreamEvents(ctx context.Context, interval time.Duratio
 
 }
 
+func (mc *MonitorClient) PushStatus(ctx context.Context) (*StatusPushStream, error) {
+	stream, err := mc.msc.PushStatus(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &StatusPushStream{
+		stream: stream,
+	}, nil
+}
+
+func (mc *MonitorClient) PushEvents(ctx context.Context) (*EventsPushStream, error) {
+	stream, err := mc.msc.PushEvents(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &EventsPushStream{
+		stream: stream,
+	}, nil
+}
+
 func (mc *MonitorClient) Close() error {
 	return mc.conn.Close()
 }
 
-func NewMonitorClient(addr string, opts ...grpc.DialOption) (*MonitorClient, error) {
+func NewMonitorClient(
+	addr string,
+	opts ...grpc.DialOption,
+) (*MonitorClient, error) {
 	conn, err := grpc.NewClient(addr, opts...)
 	if err != nil {
 		return nil, err
