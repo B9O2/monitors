@@ -79,16 +79,6 @@ func (pm *PushMonitor[T, R]) Start(
 	pushCtx, pushCancel := context.WithCancel(ctx)
 	defer pushCancel()
 
-	statusStream, err := mc.PushStatus(pushCtx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open status push stream: %w", err)
-	}
-
-	eventsStream, err := mc.PushEvents(pushCtx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open events push stream: %w", err)
-	}
-
 	logBuffer := &MemoryLogBuffer{}
 	pm.mt.SetLogger(func(l zerolog.Logger) zerolog.Logger {
 		zerolog.TimeFieldFormat = "2006-01-02 15:04:05"
@@ -108,41 +98,62 @@ func (pm *PushMonitor[T, R]) Start(
 
 		for {
 			select {
-			case <-ticker.C:
-				status := &monitor.Status{
-					Name:        pm.mt.Name(),
-					TotalTask:   pm.mt.TotalTask(),
-					TotalRetry:  pm.mt.TotalRetry(),
-					TotalResult: pm.mt.TotalResult(),
-					RetrySize:   pm.mt.MaxRetryQueue(),
-					ThreadsDetail: &monitor.ThreadsDetail{
-						ThreadsStatus: pm.mt.ThreadsDetail().AllStatus(),
-						ThreadsCount:  pm.mt.ThreadsDetail().AllCounter(),
-					},
-					Interval: uint64(interval),
-				}
-				if err := statusStream.Send(status); err != nil {
-					fmt.Printf("[PushMonitor] Error sending status: %v\n", err)
-					return
-				}
-			case <-stopChan:
-				status := &monitor.Status{
-					Name:        pm.mt.Name(),
-					TotalTask:   pm.mt.TotalTask(),
-					TotalRetry:  pm.mt.TotalRetry(),
-					TotalResult: pm.mt.TotalResult(),
-					RetrySize:   pm.mt.MaxRetryQueue(),
-					ThreadsDetail: &monitor.ThreadsDetail{
-						ThreadsStatus: pm.mt.ThreadsDetail().AllStatus(),
-						ThreadsCount:  pm.mt.ThreadsDetail().AllCounter(),
-					},
-					Interval: uint64(interval),
-				}
-				statusStream.Send(status)
-				statusStream.CloseAndRecv()
-				return
 			case <-pushCtx.Done():
 				return
+			default:
+			}
+
+			statusStream, err := mc.PushStatus(pushCtx)
+			if err != nil {
+				fmt.Printf("[PushMonitor] Failed to open status push stream, retrying in 2s: %v\n", err)
+				select {
+				case <-time.After(2 * time.Second):
+					continue
+				case <-pushCtx.Done():
+					return
+				}
+			}
+
+			// Use a boolean to control the inner sending loop
+			isConnected := true
+			for isConnected {
+				select {
+				case <-ticker.C:
+					status := &monitor.Status{
+						Name:        pm.mt.Name(),
+						TotalTask:   pm.mt.TotalTask(),
+						TotalRetry:  pm.mt.TotalRetry(),
+						TotalResult: pm.mt.TotalResult(),
+						RetrySize:   pm.mt.MaxRetryQueue(),
+						ThreadsDetail: &monitor.ThreadsDetail{
+							ThreadsStatus: pm.mt.ThreadsDetail().AllStatus(),
+							ThreadsCount:  pm.mt.ThreadsDetail().AllCounter(),
+						},
+						Interval: uint64(interval),
+					}
+					if err := statusStream.Send(status); err != nil {
+						fmt.Printf("[PushMonitor] Error sending status, reconnecting: %v\n", err)
+						isConnected = false
+					}
+				case <-stopChan:
+					status := &monitor.Status{
+						Name:        pm.mt.Name(),
+						TotalTask:   pm.mt.TotalTask(),
+						TotalRetry:  pm.mt.TotalRetry(),
+						TotalResult: pm.mt.TotalResult(),
+						RetrySize:   pm.mt.MaxRetryQueue(),
+						ThreadsDetail: &monitor.ThreadsDetail{
+							ThreadsStatus: pm.mt.ThreadsDetail().AllStatus(),
+							ThreadsCount:  pm.mt.ThreadsDetail().AllCounter(),
+						},
+						Interval: uint64(interval),
+					}
+					statusStream.Send(status)
+					statusStream.CloseAndRecv()
+					return
+				case <-pushCtx.Done():
+					return
+				}
 			}
 		}
 	}()
@@ -156,30 +167,49 @@ func (pm *PushMonitor[T, R]) Start(
 
 		for {
 			select {
-			case <-ticker.C:
-				logs := logBuffer.Drain()
-				if len(logs) > 0 {
-					if err := eventsStream.Send(&monitor.Events{
-						Name: pm.mt.Name(),
-						Logs: logs,
-					}); err != nil {
-						fmt.Printf("[PushMonitor] Error sending events: %v\n", err)
-						return
-					}
-					// fmt.Printf("[PushMonitor] Sent %d logs to %s\n", len(logs), addr)
-				}
-			case <-stopChan:
-				logs := logBuffer.Drain()
-				if len(logs) > 0 {
-					eventsStream.Send(&monitor.Events{
-						Name: pm.mt.Name(),
-						Logs: logs,
-					})
-				}
-				eventsStream.CloseAndRecv()
-				return
 			case <-pushCtx.Done():
 				return
+			default:
+			}
+
+			eventsStream, err := mc.PushEvents(pushCtx)
+			if err != nil {
+				fmt.Printf("[PushMonitor] Failed to open events push stream, retrying in 2s: %v\n", err)
+				select {
+				case <-time.After(2 * time.Second):
+					continue
+				case <-pushCtx.Done():
+					return
+				}
+			}
+
+			isConnected := true
+			for isConnected {
+				select {
+				case <-ticker.C:
+					logs := logBuffer.Drain()
+					if len(logs) > 0 {
+						if err := eventsStream.Send(&monitor.Events{
+							Name: pm.mt.Name(),
+							Logs: logs,
+						}); err != nil {
+							fmt.Printf("[PushMonitor] Error sending events, reconnecting: %v\n", err)
+							isConnected = false
+						}
+					}
+				case <-stopChan:
+					logs := logBuffer.Drain()
+					if len(logs) > 0 {
+						eventsStream.Send(&monitor.Events{
+							Name: pm.mt.Name(),
+							Logs: logs,
+						})
+					}
+					eventsStream.CloseAndRecv()
+					return
+				case <-pushCtx.Done():
+					return
+				}
 			}
 		}
 	}()
