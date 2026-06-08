@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -52,7 +51,9 @@ type PushMonitor[T any, R any] struct {
 	mt *Multitasking.Multitasking[T, R]
 }
 
-func NewPushMonitor[T, R any](mt *Multitasking.Multitasking[T, R]) *PushMonitor[T, R] {
+func NewPushMonitor[T, R any](
+	mt *Multitasking.Multitasking[T, R],
+) *PushMonitor[T, R] {
 	return &PushMonitor[T, R]{
 		mt: mt,
 	}
@@ -66,11 +67,16 @@ func (pm *PushMonitor[T, R]) Start(
 	credential credentials.TransportCredentials,
 ) (result []R, err error) {
 	if credential == nil {
-		fmt.Println("[PushMonitor] No credentials provided, using insecure connection")
+		// fmt.Println(
+		// 	"[PushMonitor] No credentials provided, using insecure connection",
+		// )
 		credential = insecure.NewCredentials()
 	}
 
-	mc, err := core.NewMonitorClient(addr, grpc.WithTransportCredentials(credential))
+	mc, err := core.NewMonitorClient(
+		addr,
+		grpc.WithTransportCredentials(credential),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -105,7 +111,10 @@ func (pm *PushMonitor[T, R]) Start(
 
 			statusStream, err := mc.PushStatus(pushCtx)
 			if err != nil {
-				fmt.Printf("[PushMonitor] Failed to open status push stream, retrying in 2s: %v\n", err)
+				// fmt.Printf(
+				// 	"[PushMonitor] Failed to open status push stream, retrying in 2s: %v\n",
+				// 	err,
+				// )
 				select {
 				case <-time.After(2 * time.Second):
 					continue
@@ -132,7 +141,10 @@ func (pm *PushMonitor[T, R]) Start(
 						Interval: uint64(interval),
 					}
 					if err := statusStream.Send(status); err != nil {
-						fmt.Printf("[PushMonitor] Error sending status, reconnecting: %v\n", err)
+						// fmt.Printf(
+						// 	"[PushMonitor] Error sending status, reconnecting: %v\n",
+						// 	err,
+						// )
 						isConnected = false
 					}
 				case <-stopChan:
@@ -174,7 +186,10 @@ func (pm *PushMonitor[T, R]) Start(
 
 			eventsStream, err := mc.PushEvents(pushCtx)
 			if err != nil {
-				fmt.Printf("[PushMonitor] Failed to open events push stream, retrying in 2s: %v\n", err)
+				// fmt.Printf(
+				// 	"[PushMonitor] Failed to open events push stream, retrying in 2s: %v\n",
+				// 	err,
+				// )
 				select {
 				case <-time.After(2 * time.Second):
 					continue
@@ -193,7 +208,7 @@ func (pm *PushMonitor[T, R]) Start(
 							Name: pm.mt.Name(),
 							Logs: logs,
 						}); err != nil {
-							fmt.Printf("[PushMonitor] Error sending events, reconnecting: %v\n", err)
+							// fmt.Printf("[PushMonitor] Error sending events, reconnecting: %v\n", err)
 							isConnected = false
 						}
 					}
@@ -215,9 +230,9 @@ func (pm *PushMonitor[T, R]) Start(
 	}()
 
 	result, err = pm.mt.Run(ctx, threads)
-	
+
 	close(stopChan)
 	wg.Wait()
-	
+
 	return result, err
 }
